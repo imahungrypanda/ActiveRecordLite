@@ -22,10 +22,21 @@ class SQLObject
   end
 
   def self.finalize!
+    self.columns.each do |name|
+      define_method(name) do
+        self.attributes[name]
+      end
+
+      define_method("#{name}=") do |value|
+        self.attributes[name] = value
+      end
+    end
   end
 
   def self.table_name=(table_name)
-    define_method("#{table_name.downcase.pluralize}=") { |el| instance_variable_set("@#{table_name}", el) }
+    define_method("#{table_name.downcase.pluralize}=") do |el|
+      instance_variable_set("@#{table_name}", el)
+    end
   end
 
   def self.table_name
@@ -49,7 +60,7 @@ class SQLObject
   end
 
   def attributes
-    # ...
+    @attributes ||= {}
   end
 
   def attribute_values
