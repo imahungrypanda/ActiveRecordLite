@@ -15,7 +15,7 @@ class SQLObject
       SELECT
         *
       FROM
-        cats
+        #{self.table_name}
     SQL
 
     @columns = @columns.first.map(&:to_sym)
@@ -59,7 +59,16 @@ class SQLObject
   end
 
   def self.find(id)
-    # ...
+    results = DBConnection.execute(<<-SQL, id)
+      SELECT
+        #{table_name}.*
+      FROM
+        #{table_name}
+      WHERE
+        #{table_name}.id IS ?
+    SQL
+
+    parse_all(results).first
   end
 
   def initialize(params = {})
@@ -72,8 +81,6 @@ class SQLObject
         raise "unknown attribute '#{name.to_s}'"
       end
     end
-
-
   end
 
   def attributes
@@ -81,18 +88,38 @@ class SQLObject
   end
 
   def attribute_values
-    # ...
+    self.class.columns.map { |attr| self.send(attr) }
   end
 
   def insert
-    # ...
+    columns = self.class.columns.drop(1)
+    col_names = columns.map(&:to_s).join(", ")
+    question_marks = ( ["?"] * columns.length ).join(", ")
+
+    DBConnection.execute(<<-SQL, *attribute_values.drop(1))
+      INSERT INTO
+        #{self.class.table_name} (#{col_names})
+      VALUES
+        (#{question_marks})
+    SQL
+
+    self.id = DBConnection.last_insert_row_id
   end
 
   def update
-    # ...
+    columns = self.class.columns.map { |col| "#{col} = ?" }.join(", ")
+
+    DBConnection.execute(<<-SQL, *attribute_values, id)
+      UPDATE
+        #{self.class.table_name}
+      SET
+        #{columns}
+      WHERE
+        #{self.class.table_name}.id = ?
+    SQL
   end
 
   def save
-    # ...
+    id.nil? ? insert : update
   end
 end
